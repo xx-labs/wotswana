@@ -1,0 +1,72 @@
+attacker [active]
+
+// ************************* DEFINITION OF SYSTEM ENTITIES ************************* 
+
+principal Verifier[
+]
+
+principal Signer[
+    
+    // generates secret key material
+    generates sk_00, sk_01
+
+
+    vk_00 = HASH(sk_00)
+    vk_01 = HASH(sk_01)
+
+    m_1 = CONCAT(vk_00, vk_01)
+
+    generates tweak_1, publicSeed
+
+    // Tweakable Hash TH(P, T, M)
+    pk_1 = HASH(publicSeed, tweak_1, m_1)
+
+
+    sk_10, sk_11 = HKDF(nil, pk_1, nil)
+
+    vk_10 = HASH(sk_10)
+    vk_11 = HASH(sk_11)
+
+    m_2 = CONCAT(vk_10, vk_11)
+    
+    generates tweak_2
+
+    // Tweakable Hash TH(P, T, M)
+    pk_2 = HASH(publicSeed, tweak_2, m_2)
+
+]
+
+// We simulate that the signer releases a signature for a '1' (bit) message
+Signer -> Verifier: [pk_2], [publicSeed], [vk_10], [vk_11], tweak_2, sk_11 
+
+// Verifier checks whether or not the (EC)DSA digital signature is valid.
+principal Verifier[
+
+    vk = HASH(sk_11)
+
+    // check if it is a correct Lamport signature on a '1'
+    _ = ASSERT(vk, vk_11)
+
+
+    pk = HASH(publicSeed, tweak_2, CONCAT(vk_10, vk_11))
+
+    // check if the obtained public key matches the actual public key of the signer
+    _ = ASSERT(pk, pk_2)
+    
+]
+
+// The Signer releases the next hash-based key to be used.
+principal Signer[
+    leaks pk_1
+]
+
+
+// Given this compromise we want to know if the adversary is able to obtain any of the secret key values
+
+// ************************* PROTOCOL QUERIES *************************
+queries[
+	confidentiality? sk_00
+	confidentiality? sk_01
+    confidentiality? sk_10
+    confidentiality? sk_11
+]
